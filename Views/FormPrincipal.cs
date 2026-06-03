@@ -1,15 +1,15 @@
-// FormPrincipal.cs - Adicione estes usings no topo
+// FormPrincipal.cs
 using System;
-using System.Collections.Generic;  // ← Adicionar para List<>
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
-using System.Linq;  // ← Adicionar para FirstOrDefault
+using System.Linq;
+using System.Text;
 using System.Windows.Forms;
-using GeradorXML.Models;  // ← Adicionar
+using GeradorXML.Models;
 using GeradorXML.Services;
-using System.Text;  // ← Adicionar para StringBuilder
 
 namespace GeradorXML.Views
 {
@@ -153,7 +153,6 @@ namespace GeradorXML.Views
                 FlatAppearance = { BorderSize = 0 }
             };
             
-            // Efeito hover no botão configuração
             btnConfiguracao.MouseEnter += (s, e) => 
             {
                 btnConfiguracao.BackColor = Color.FromArgb(70, 90, 110);
@@ -173,7 +172,7 @@ namespace GeradorXML.Views
                 Text = "💬 Suporte Técnico",
                 Location = new Point(770, 65),
                 Size = new Size(105, 40),
-                BackColor = Color.FromArgb(37, 211, 102),  // Cor do WhatsApp
+                BackColor = Color.FromArgb(255, 99, 71),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold),
@@ -181,17 +180,16 @@ namespace GeradorXML.Views
                 FlatAppearance = { BorderSize = 0 }
             };
             
-            // Efeito hover no botão suporte
             btnSuporte.MouseEnter += (s, e) => 
             {
-                btnSuporte.BackColor = Color.FromArgb(47, 221, 112);
+                btnSuporte.BackColor = Color.FromArgb(255, 99, 71);
                 btnSuporte.FlatAppearance.BorderSize = 1;
-                btnSuporte.FlatAppearance.BorderColor = Color.FromArgb(57, 231, 122);
+                btnSuporte.FlatAppearance.BorderColor = Color.FromArgb(255, 123, 81);
             };
             
             btnSuporte.MouseLeave += (s, e) => 
             {
-                btnSuporte.BackColor = Color.FromArgb(37, 211, 102);
+                btnSuporte.BackColor = Color.FromArgb(255, 99, 71);
                 btnSuporte.FlatAppearance.BorderSize = 0;
             };
 
@@ -354,6 +352,9 @@ namespace GeradorXML.Views
                 panelProgresso,
                 panelFooter
             });
+
+            // Configurar estado inicial do botão
+            AtualizarEstadoBotaoProcessar("aguardando", false);
         }
 
         private void ConfigurarEventos()
@@ -433,8 +434,7 @@ namespace GeradorXML.Views
                         lblInfoArquivo.ForeColor = Color.Green;
                     }
                     
-                    if (btnProcessar != null)
-                        btnProcessar.Enabled = true;
+                    AtualizarEstadoBotaoProcessar("pronto", true);
                 }
             }
         }
@@ -453,17 +453,15 @@ namespace GeradorXML.Views
                 MessageBox.Show("O arquivo selecionado não existe mais.", 
                     "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 
-                if (btnProcessar != null)
-                    btnProcessar.Enabled = false;
+                LimparCampos();
+                AtualizarEstadoBotaoProcessar("aguardando", false);
                 return;
             }
 
-            // Preparar UI para processamento
+            AtualizarEstadoBotaoProcessar("processando", false);
+            
             if (btnSelecionarArquivo != null)
                 btnSelecionarArquivo.Enabled = false;
-            
-            if (btnProcessar != null)
-                btnProcessar.Enabled = false;
             
             if (btnConversor != null)
                 btnConversor.Enabled = false;
@@ -483,7 +481,6 @@ namespace GeradorXML.Views
             if (panelProgresso != null)
                 panelProgresso.Visible = true;
             
-            // Iniciar processamento em background
             backgroundWorker?.RunWorkerAsync(arquivoSelecionadoPath);
         }
 
@@ -499,7 +496,6 @@ namespace GeradorXML.Views
                 var csvReader = new CsvReaderService();
                 var xmlGenerator = new XmlGeneratorService();
                 
-                // Validar colunas
                 var colunasValidas = csvReader.ValidarColunas(arquivoPath!, out var colunasFaltantes);
                 
                 if (!colunasValidas)
@@ -510,13 +506,11 @@ namespace GeradorXML.Views
                 
                 worker?.ReportProgress(20, "📖 Lendo arquivo CSV...");
                 
-                // Ler CSV
                 var registros = csvReader.LerCsv(arquivoPath!);
                 var totalRegistros = registros.Count;
                 
                 worker?.ReportProgress(30, $"✅ {totalRegistros} registros encontrados");
                 
-                // Criar diretório temporário
                 var estacao = registros.FirstOrDefault()?.EstacaoAbastecedora ?? "DESCONHECIDA";
                 var diretorioPrincipal = Path.Combine(Path.GetTempPath(), 
                     $"moradias_xml_{estacao}_{DateTime.Now:yyyyMMddHHmmss}");
@@ -524,19 +518,16 @@ namespace GeradorXML.Views
                 
                 var pastasCriadas = new List<string>();
                 
-                // Contadores
                 int contadorSemComplementos = 0;
                 int contador1Complemento = 0;
                 int contador2Complementos = 0;
                 int contador3Complementos = 0;
                 
-                // Processar cada registro
                 for (int i = 0; i < totalRegistros; i++)
                 {
                     var registro = registros[i];
                     var percentual = 30 + (i * 60 / totalRegistros);
                     
-                    // Determinar tipo de complemento
                     var tipo = xmlGenerator.DeterminarTipoComplemento(
                         registro.Complemento, 
                         registro.Complemento2, 
@@ -545,20 +536,16 @@ namespace GeradorXML.Views
                     worker?.ReportProgress(percentual, 
                         $"📝 Registro {i + 1}/{totalRegistros} - Survey: {registro.CodSurvey} - Tipo: {tipo} complemento(s)");
                     
-                    // Gerar XML
                     var xmlBytes = xmlGenerator.GerarXml(registro, tipo);
                     
-                    // Criar pasta para esta moradia
                     var nomePasta = $"moradia{i + 1}";
                     var caminhoPasta = Path.Combine(diretorioPrincipal, nomePasta);
                     Directory.CreateDirectory(caminhoPasta);
                     pastasCriadas.Add(caminhoPasta);
                     
-                    // Salvar XML
                     var xmlPath = Path.Combine(caminhoPasta, $"{nomePasta}.xml");
                     File.WriteAllBytes(xmlPath, xmlBytes);
                     
-                    // Atualizar contadores
                     switch (tipo)
                     {
                         case 0: contadorSemComplementos++; break;
@@ -570,7 +557,6 @@ namespace GeradorXML.Views
                 
                 worker?.ReportProgress(95, "📦 Criando arquivo ZIP...");
                 
-                // Criar ZIP
                 var culturaBrasil = new System.Globalization.CultureInfo("pt-BR");
                 var dataArquivo = DateTime.Now.ToString("dd.MM.yyyy_HH.mm.ss", culturaBrasil);
                 var zipFilename = $"moradias_xml_{estacao}_{dataArquivo}.zip";
@@ -578,19 +564,15 @@ namespace GeradorXML.Views
                 
                 System.IO.Compression.ZipFile.CreateFromDirectory(diretorioPrincipal, zipPath);
                 
-                // Limpar diretório temporário
                 Directory.Delete(diretorioPrincipal, true);
                 
-                // Mover para pasta de Downloads do usuário
                 var downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
                 var destinoZip = Path.Combine(downloadsPath, zipFilename);
                 File.Copy(zipPath, destinoZip, true);
                 File.Delete(zipPath);
                 
-                // Formatar data em português do Brasil para o log
                 var dataFormatada = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss", culturaBrasil);
                 
-                // USANDO O MÉTODO GERAR TABELA
                 var logEstatisticas = GerarTabelaEstatisticas(
                     contador3Complementos,
                     contador2Complementos,
@@ -599,11 +581,11 @@ namespace GeradorXML.Views
                     totalRegistros
                 );
                 
-                // Adicionar informações extras
                 logEstatisticas += $@"
-                📁 Arquivo salvo em: {destinoZip}
 
-                📅 Data/Hora: {dataFormatada}";
+📁 Arquivo salvo em: {destinoZip}
+
+📅 Data/Hora: {dataFormatada}";
                 
                 e.Result = new ProcessamentoResultadoSimulado
                 {
@@ -624,21 +606,20 @@ namespace GeradorXML.Views
             }
         }
 
-        // MÉTODO GERAR TABELA (coloque dentro da mesma classe) 
         private string GerarTabelaEstatisticas(int c3, int c2, int c1, int c0, int total)
         {
             return $@"
-        ✅ PROCESSAMENTO CONCLUÍDO
+✅ PROCESSAMENTO CONCLUÍDO
 
-        📊 ESTATÍSTICAS FINAIS
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        • XML com 3 complementos: {c3,4} registros
-        • XML com 2 complementos: {c2,4} registros
-        • XML com 1 complemento:  {c1,4} registros
-        • XML sem complementos:   {c0,4} registros
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        • TOTAL DE REGISTROS: {total,4} registros
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+📊 ESTATÍSTICAS FINAIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• XML com 3 complementos: {c3,4} registros
+• XML com 2 complementos: {c2,4} registros
+• XML com 1 complemento:  {c1,4} registros
+• XML sem complementos:   {c0,4} registros
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• TOTAL DE REGISTROS: {total,4} registros
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
         }
        
         private void BackgroundWorker_ProgressChanged(object? sender, ProgressChangedEventArgs e)
@@ -654,6 +635,7 @@ namespace GeradorXML.Views
                 lblStatus.Text = mensagem;
             }
         }
+        
         private void BackgroundWorker_RunWorkerCompleted(object? sender, RunWorkerCompletedEventArgs e)
         {
             if (e.Result is ProcessamentoResultadoSimulado resultado)
@@ -672,29 +654,9 @@ namespace GeradorXML.Views
                     if (lblProgresso != null)
                         lblProgresso.Text = "100%";
                     
-                    // ⭐⭐⭐ LIMPAR TUDO APÓS O PROCESSAMENTO ⭐⭐⭐
+                    LimparCampos();
+                    AtualizarEstadoBotaoProcessar("aguardando", false);
                     
-                    // 1. Limpar o TextBox do caminho do arquivo
-                    if (txtCaminhoArquivo != null)
-                    {
-                        txtCaminhoArquivo.Text = string.Empty;
-                    }
-                    
-                    // 2. Limpar o Label de informação do arquivo
-                    if (lblInfoArquivo != null)
-                    {
-                        lblInfoArquivo.Text = "Nenhum arquivo selecionado";
-                        lblInfoArquivo.ForeColor = SystemColors.ControlText; // Cor padrão
-                    }
-                    
-                    // 3. Limpar a variável global do caminho
-                    arquivoSelecionadoPath = null;
-                    
-                    // 4. Desabilitar o botão processar até selecionar novo arquivo
-                    if (btnProcessar != null)
-                        btnProcessar.Enabled = false;
-                    
-                    // Mostrar resultado com opção de abrir pasta
                     var resultDialog = MessageBox.Show(
                         resultado.Log + "\n\nDeseja abrir a pasta onde o arquivo foi salvo?",
                         "Sucesso",
@@ -721,6 +683,9 @@ namespace GeradorXML.Views
                         lblStatus.ForeColor = Color.Red;
                     }
                     
+                    LimparCampos();
+                    AtualizarEstadoBotaoProcessar("aguardando", false);
+                    
                     MessageBox.Show(
                         $"Erro ao processar o arquivo:\n\n{resultado.Erro}",
                         "Erro",
@@ -729,14 +694,12 @@ namespace GeradorXML.Views
                 }
             }
             
-            // Reabilitar controles
             if (btnSelecionarArquivo != null)
                 btnSelecionarArquivo.Enabled = true;
             
             if (btnConversor != null)
                 btnConversor.Enabled = true;
             
-            // Esconder progresso após 2 segundos
             var timer = new System.Windows.Forms.Timer { Interval = 2000 };
             timer.Tick += (s, args) => 
             {
@@ -746,17 +709,14 @@ namespace GeradorXML.Views
                 timer.Dispose();
             };
             timer.Start();
-        } 
-      
+        }
     
         private void AbrirPastaComArquivoSelecionado(string caminhoArquivo)
         {
             try
             {
-                // Verificar se o arquivo existe
                 if (File.Exists(caminhoArquivo))
                 {
-                    // Comando para abrir o Explorer e selecionar o arquivo
                     System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{caminhoArquivo}\"");
                 }
                 else
@@ -812,7 +772,6 @@ namespace GeradorXML.Views
             
             if (resultado == DialogResult.OK)
             {
-                // Número formatado para WhatsApp (sem espaços, sem +)
                 var telefone = "5561995488068";
                 var mensagem = "Olá! Preciso de ajuda com o Gerador de XML para Edificações.";
                 var mensagemCodificada = Uri.EscapeDataString(mensagem);
@@ -833,6 +792,51 @@ namespace GeradorXML.Views
                 }
             }
         }
+
+        private void AtualizarEstadoBotaoProcessar(string estado, bool habilitado = false)
+        {
+            if (btnProcessar == null) return;
+            
+            btnProcessar.Enabled = habilitado;
+            
+            switch (estado)
+            {
+                case "aguardando":
+                    btnProcessar.Text = "⏳ Aguardando CSV...";
+                    btnProcessar.BackColor = Color.FromArgb(211, 211, 211);
+                    btnProcessar.ForeColor = Color.White;
+                    btnProcessar.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+                    break;
+                    
+                case "pronto":
+                    btnProcessar.Text = "🚀 Gerar XML";
+                    btnProcessar.BackColor = Color.FromArgb(46, 204, 113);
+                    btnProcessar.ForeColor = Color.White;
+                    btnProcessar.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+                    break;
+                    
+                case "processando":
+                    btnProcessar.Text = "⏳ Processando...";
+                    btnProcessar.BackColor = Color.FromArgb(211, 211, 211);
+                    btnProcessar.ForeColor = Color.White;
+                    btnProcessar.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 100);
+                    break;
+            }
+        }
+
+        private void LimparCampos()
+        {
+            if (txtCaminhoArquivo != null)
+                txtCaminhoArquivo.Text = string.Empty;
+            
+            if (lblInfoArquivo != null)
+            {
+                lblInfoArquivo.Text = "Nenhum arquivo selecionado";
+                lblInfoArquivo.ForeColor = SystemColors.ControlText;
+            }
+            
+            arquivoSelecionadoPath = null;
+        }
     }
 
     public class ProcessamentoResultadoSimulado
@@ -840,7 +844,7 @@ namespace GeradorXML.Views
         public bool Sucesso { get; set; }
         public string? Erro { get; set; }
         public string? ArquivoGerado { get; set; }
-        public string? ArquivoGeradoCompleto { get; set; }  // ← Adicione esta propriedade
+        public string? ArquivoGeradoCompleto { get; set; }
         public int TotalRegistros { get; set; }
         public string? Log { get; set; }
     }
