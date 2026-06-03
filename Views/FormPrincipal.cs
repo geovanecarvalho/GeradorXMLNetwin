@@ -9,7 +9,7 @@ using System.Linq;  // ← Adicionar para FirstOrDefault
 using System.Windows.Forms;
 using GeradorXML.Models;  // ← Adicionar
 using GeradorXML.Services;
-
+using System.Text;  // ← Adicionar para StringBuilder
 
 namespace GeradorXML.Views
 {
@@ -95,7 +95,7 @@ namespace GeradorXML.Views
         private void InicializarComponentes()
         {
             // Configuração da Janela Principal
-            this.Text = "Gerador de XML para Edificações - Telemont";
+            this.Text = "Gerador de XML para Edificações - Netwin";
             this.Size = new Size(900, 550);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -121,7 +121,7 @@ namespace GeradorXML.Views
 
             var lblTitulo = new Label
             {
-                Text = "Gerador de XML para Edificações",
+                Text = "Gerador de XML Netwin",
                 Font = new Font("Segoe UI", 18, FontStyle.Bold),
                 ForeColor = Color.White,
                 Location = new Point(120, 30),
@@ -244,9 +244,9 @@ namespace GeradorXML.Views
 
             btnProcessar = new Button
             {
-                Text = "🚀 Processar Arquivo",
-                Location = new Point(300, 115),
-                Size = new Size(200, 40),
+                Text = "🚀 Gerar XML",
+                Location = new Point(200, 110),
+                Size = new Size(500, 40),
                 BackColor = Color.FromArgb(46, 204, 113),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -333,9 +333,9 @@ namespace GeradorXML.Views
 
             var lblFooter = new Label
             {
-                Text = "© 2024 - Gerador de XML v1.0",
-                Location = new Point(350, 18),
-                Size = new Size(200, 20),
+                Text = "© 2026 Geovane Carvalho - Gerador de XML Netwin v1.0.0",
+                Location = new Point(230, 18),
+                Size = new Size(400, 20),
                 ForeColor = Color.FromArgb(180, 180, 180),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Font = new Font("Segoe UI", 8)
@@ -590,29 +590,26 @@ namespace GeradorXML.Views
                 // Formatar data em português do Brasil para o log
                 var dataFormatada = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss", culturaBrasil);
                 
-                // Estatísticas
-                var logEstatisticas = $@"
-        ✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!
+                // USANDO O MÉTODO GERAR TABELA
+                var logEstatisticas = GerarTabelaEstatisticas(
+                    contador3Complementos,
+                    contador2Complementos,
+                    contador1Complemento,
+                    contadorSemComplementos,
+                    totalRegistros
+                );
+                
+                // Adicionar informações extras
+                logEstatisticas += $@"
+                📁 Arquivo salvo em: {destinoZip}
 
-        📊 ESTATÍSTICAS FINAIS:
-        ┌────────────────────────────────────────────┐
-        │ XML com 3 complementos: {contador3Complementos,10} registros │
-        │ XML com 2 complementos: {contador2Complementos,10} registros │
-        │ XML com 1 complemento:  {contador1Complemento,10} registros │
-        │ XML sem complementos:   {contadorSemComplementos,10} registros │
-        ├────────────────────────────────────────────┤
-        │ TOTAL DE REGISTROS:     {totalRegistros,10} registros │
-        └────────────────────────────────────────────┘
-
-        📁 Arquivo salvo em: {destinoZip}
-        📅 Data/Hora: {dataFormatada}
-        ";
+                📅 Data/Hora: {dataFormatada}";
                 
                 e.Result = new ProcessamentoResultadoSimulado
                 {
                     Sucesso = true,
                     ArquivoGerado = zipFilename,
-                    ArquivoGeradoCompleto = destinoZip,  // ⭐ LINHA IMPORTANTE
+                    ArquivoGeradoCompleto = destinoZip,
                     TotalRegistros = totalRegistros,
                     Log = logEstatisticas
                 };
@@ -626,7 +623,24 @@ namespace GeradorXML.Views
                 };
             }
         }
-        
+
+        // MÉTODO GERAR TABELA (coloque dentro da mesma classe) 
+        private string GerarTabelaEstatisticas(int c3, int c2, int c1, int c0, int total)
+        {
+            return $@"
+        ✅ PROCESSAMENTO CONCLUÍDO
+
+        📊 ESTATÍSTICAS FINAIS
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        • XML com 3 complementos: {c3,4} registros
+        • XML com 2 complementos: {c2,4} registros
+        • XML com 1 complemento:  {c1,4} registros
+        • XML sem complementos:   {c0,4} registros
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        • TOTAL DE REGISTROS: {total,4} registros
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+        }
+       
         private void BackgroundWorker_ProgressChanged(object? sender, ProgressChangedEventArgs e)
         {
             if (progressBar != null)
@@ -640,7 +654,6 @@ namespace GeradorXML.Views
                 lblStatus.Text = mensagem;
             }
         }
-        
         private void BackgroundWorker_RunWorkerCompleted(object? sender, RunWorkerCompletedEventArgs e)
         {
             if (e.Result is ProcessamentoResultadoSimulado resultado)
@@ -659,6 +672,28 @@ namespace GeradorXML.Views
                     if (lblProgresso != null)
                         lblProgresso.Text = "100%";
                     
+                    // ⭐⭐⭐ LIMPAR TUDO APÓS O PROCESSAMENTO ⭐⭐⭐
+                    
+                    // 1. Limpar o TextBox do caminho do arquivo
+                    if (txtCaminhoArquivo != null)
+                    {
+                        txtCaminhoArquivo.Text = string.Empty;
+                    }
+                    
+                    // 2. Limpar o Label de informação do arquivo
+                    if (lblInfoArquivo != null)
+                    {
+                        lblInfoArquivo.Text = "Nenhum arquivo selecionado";
+                        lblInfoArquivo.ForeColor = SystemColors.ControlText; // Cor padrão
+                    }
+                    
+                    // 3. Limpar a variável global do caminho
+                    arquivoSelecionadoPath = null;
+                    
+                    // 4. Desabilitar o botão processar até selecionar novo arquivo
+                    if (btnProcessar != null)
+                        btnProcessar.Enabled = false;
+                    
                     // Mostrar resultado com opção de abrir pasta
                     var resultDialog = MessageBox.Show(
                         resultado.Log + "\n\nDeseja abrir a pasta onde o arquivo foi salvo?",
@@ -668,11 +703,13 @@ namespace GeradorXML.Views
                     
                     if (resultDialog == DialogResult.Yes)
                     {
-                        var pasta = Path.GetDirectoryName(resultado.ArquivoGeradoCompleto);
-                        if (!string.IsNullOrEmpty(pasta) && Directory.Exists(pasta))
+                        if (!string.IsNullOrEmpty(resultado.ArquivoGeradoCompleto))
                         {
-                            // Abrir Explorer e selecionar o arquivo
-                            AbrirPastaComArquivoSelecionado(resultado.ArquivoGeradoCompleto);
+                            var pasta = Path.GetDirectoryName(resultado.ArquivoGeradoCompleto);
+                            if (!string.IsNullOrEmpty(pasta) && Directory.Exists(pasta))
+                            {
+                                AbrirPastaComArquivoSelecionado(resultado.ArquivoGeradoCompleto);
+                            }
                         }
                     }
                 }
@@ -709,8 +746,9 @@ namespace GeradorXML.Views
                 timer.Dispose();
             };
             timer.Start();
-        }
-
+        } 
+      
+    
         private void AbrirPastaComArquivoSelecionado(string caminhoArquivo)
         {
             try
