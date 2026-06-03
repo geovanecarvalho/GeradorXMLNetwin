@@ -71,7 +71,7 @@ O **Gerador XML Netwin** é uma aplicação Windows Forms desenvolvida em C#/.NE
 
 ```bash
 # Clone o repositório
-git clone https://github.com/seu-usuario/GeradorXMLNetwin.git
+git clone https://github.com/geovanecarvalho/GeradorXMLNetwin.git
 
 # Acesse a pasta do projeto
 cd GeradorXMLNetwin
