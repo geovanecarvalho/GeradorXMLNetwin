@@ -2,24 +2,91 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Configurações Básicas -->
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>disable</ImplicitUsings>
     <ApplicationIcon>Assets\icone.ico</ApplicationIcon>
+    
+    <!-- ⭐ INFORMAÇÕES DE VERSÃO (ATUALIZE A CADA RELEASE) ⭐ -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.0</Version>
+    
+    <!-- Informações do Produto -->
+    <Product>Gerador XML para Edificações - Netwin</Product>
+    <Company>Telemont</Company>
+    <Authors>Geovane Carvalho</Authors>
+    <Copyright>© 2026 Geovane Carvalho - Todos os direitos reservados</Copyright>
+    <Description>Gerador de XML para Edificações - Sistema de conversão CSV para XML estruturado</Description>
+    
+    <!-- Configurações de Publicação -->
+    <AssemblyTitle>GeradorXMLNetwin</AssemblyTitle>
+    <AssemblyDescription>Ferramenta para geração de XML a partir de arquivos CSV</AssemblyDescription>
+    
+    <!-- Configurações de Compilação -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    
+    <!-- Otimizações -->
+    <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningLevel>4</WarningLevel>
   </PropertyGroup>
 
+  <!-- Pacotes NuGet -->
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.8" />
   </ItemGroup>
 
-  <!-- Garantir que os arquivos de assets sejam copiados para a pasta de saída -->
+  <!-- Arquivos de Assets -->
   <ItemGroup>
     <Content Include="Assets\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <!-- ⭐ CONFIGURAÇÕES PARA PUBLICAÇÃO ⭐ -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Publicação como arquivo único -->
+    <PublishSingleFile>true</PublishSingleFile>
+    
+    <!-- Incluir bibliotecas nativas para auto-extração -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    
+    <!-- Publicação pronta para execução -->
+    <SelfContained>true</SelfContained>
+    
+    <!-- Remover arquivos desnecessários -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    
+    <!-- Definir ponto de entrada -->
+    <StartupObject>GeradorXML.Program</StartupObject>
+  </PropertyGroup>
+
+  <!-- ⭐ TAREFAS DE PÓS-PUBLICAÇÃO ⭐ -->
+  <Target Name="PostPublish" AfterTargets="Publish">
+    <Message Importance="High" Text="✅ Publicação concluída!" />
+    <Message Importance="High" Text="📁 Arquivo gerado em: $(PublishDir)" />
+    
+    <!-- Copiar o arquivo publicado para a pasta de release -->
+    <Copy SourceFiles="$(PublishDir)$(AssemblyName).exe" 
+          DestinationFolder="$(SolutionDir)Releases\" 
+          Condition="Exists('$(PublishDir)$(AssemblyName).exe')" />
+          
+    <Message Importance="High" Text="📦 Arquivo copiado para: $(SolutionDir)Releases\" />
+  </Target>
+
+  <!-- ⭐ TAREFA PARA GERAR O ARQUIVO DE VERSÃO ⭐ -->
+  <Target Name="GenerateVersionFile" BeforeTargets="BeforeBuild">
+    <WriteLinesToFile 
+      File="$(ProjectDir)version.txt" 
+      Lines="$(Version)" 
+      Overwrite="true" />
+  </Target>
 
 </Project>
