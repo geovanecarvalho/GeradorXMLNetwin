@@ -22,7 +22,7 @@ namespace GeradorXML.Services
         public event EventHandler<UpdateProgressEventArgs>? OnDownloadProgress;
         public event EventHandler<string>? OnError;
 
-        public UpdateService(string repoOwner = "seu-usuario", string repoName = "GeradorXMLNetwin")
+        public UpdateService(string repoOwner = "geovanecarvalho", string repoName = "GeradorXMLNetwin")
         {
             _repoOwner = repoOwner;
             _repoName = repoName;
