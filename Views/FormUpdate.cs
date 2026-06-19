@@ -7,13 +7,14 @@ using GeradorXML.Services;
 
 namespace GeradorXML.Views
 {
-    public partial class FormUpdate : Form
+    public class FormUpdate : Form
     {
         private Label lblTitle = null!;
         private Label lblCurrentVersion = null!;
         private Label lblNewVersion = null!;
         private Label lblDescription = null!;
         private Label lblSize = null!;
+        private Label lblDate = null!;
         private RichTextBox txtChangelog = null!;
         private Button btnUpdate = null!;
         private Button btnLater = null!;
@@ -39,25 +40,23 @@ namespace GeradorXML.Views
         private void InitializeComponent()
         {
             this.Text = "🔄 Atualização Disponível";
-            this.Size = new Size(600, 550);
+            this.Size = new Size(600, 580);
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.BackColor = Color.FromArgb(236, 240, 241);
             
-            // Título
             lblTitle = new Label
             {
-                Text = "🔄 Nova Versão Disponível!",
+                Text = _updateInfo.IsObrigatoria ? "⚠️ ATUALIZAÇÃO OBRIGATÓRIA!" : "🔄 Nova Versão Disponível!",
                 Font = new Font("Segoe UI", 18, FontStyle.Bold),
-                ForeColor = Color.FromArgb(52, 73, 94),
+                ForeColor = _updateInfo.IsObrigatoria ? Color.FromArgb(220, 53, 69) : Color.FromArgb(52, 73, 94),
                 Location = new Point(20, 20),
                 Size = new Size(560, 45),
                 TextAlign = ContentAlignment.MiddleLeft
             };
             
-            // Separador
             var separator = new Label
             {
                 Location = new Point(20, 70),
@@ -65,7 +64,6 @@ namespace GeradorXML.Views
                 BackColor = Color.FromArgb(189, 195, 199)
             };
             
-            // Versão Atual
             lblCurrentVersion = new Label
             {
                 Location = new Point(20, 85),
@@ -74,7 +72,6 @@ namespace GeradorXML.Views
                 ForeColor = Color.FromArgb(52, 73, 94)
             };
             
-            // Nova Versão
             lblNewVersion = new Label
             {
                 Location = new Point(20, 115),
@@ -83,8 +80,7 @@ namespace GeradorXML.Views
                 ForeColor = Color.FromArgb(46, 204, 113)
             };
             
-            // Data de Publicação
-            var lblDate = new Label
+            lblDate = new Label
             {
                 Location = new Point(20, 145),
                 Size = new Size(560, 25),
@@ -92,7 +88,6 @@ namespace GeradorXML.Views
                 ForeColor = Color.Gray
             };
             
-            // Tamanho
             lblSize = new Label
             {
                 Location = new Point(20, 170),
@@ -101,7 +96,6 @@ namespace GeradorXML.Views
                 ForeColor = Color.Gray
             };
             
-            // Descrição
             lblDescription = new Label
             {
                 Text = "📝 Novidades desta versão:",
@@ -111,7 +105,6 @@ namespace GeradorXML.Views
                 ForeColor = Color.FromArgb(52, 73, 94)
             };
             
-            // Changelog
             txtChangelog = new RichTextBox
             {
                 Location = new Point(20, 235),
@@ -123,7 +116,6 @@ namespace GeradorXML.Views
                 ScrollBars = RichTextBoxScrollBars.Vertical
             };
             
-            // Progresso
             progressBar = new ProgressBar
             {
                 Location = new Point(20, 235),
@@ -143,13 +135,12 @@ namespace GeradorXML.Views
                 Visible = false
             };
             
-            // Botões
             btnUpdate = new Button
             {
                 Text = "📥 Atualizar Agora",
                 Size = new Size(150, 40),
                 Location = new Point(20, 460),
-                BackColor = Color.FromArgb(46, 204, 113),
+                BackColor = _updateInfo.IsObrigatoria ? Color.FromArgb(220, 53, 69) : Color.FromArgb(46, 204, 113),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
@@ -167,7 +158,8 @@ namespace GeradorXML.Views
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI", 10)
+                Font = new Font("Segoe UI", 10),
+                Enabled = !_updateInfo.IsObrigatoria
             };
             btnLater.FlatAppearance.BorderSize = 0;
             btnLater.Click += (s, e) => this.Close();
@@ -181,12 +173,12 @@ namespace GeradorXML.Views
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI", 10)
+                Font = new Font("Segoe UI", 10),
+                Enabled = !_updateInfo.IsObrigatoria
             };
             btnIgnore.FlatAppearance.BorderSize = 0;
             btnIgnore.Click += BtnIgnore_Click!;
             
-            // Botão Fechar
             var btnClose = new Button
             {
                 Text = "✕ Fechar",
@@ -196,12 +188,12 @@ namespace GeradorXML.Views
                 ForeColor = Color.FromArgb(52, 73, 94),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
-                Font = new Font("Segoe UI", 10)
+                Font = new Font("Segoe UI", 10),
+                Enabled = !_updateInfo.IsObrigatoria
             };
             btnClose.FlatAppearance.BorderSize = 0;
             btnClose.Click += (s, e) => this.Close();
             
-            // Adicionar controles
             this.Controls.AddRange(new Control[] {
                 lblTitle, separator,
                 lblCurrentVersion, lblNewVersion, lblDate, lblSize,
@@ -214,11 +206,34 @@ namespace GeradorXML.Views
         {
             lblCurrentVersion.Text = $"📌 Versão atual: {_updateInfo.VersaoAtual}";
             lblNewVersion.Text = $"✨ Nova versão: {_updateInfo.VersaoNova}";
+            
+            if (_updateInfo.DataPublicacao != DateTime.MinValue)
+            {
+                lblDate.Text = $"📅 Publicado em: {_updateInfo.DataPublicacao:dd/MM/yyyy HH:mm}";
+            }
+            else
+            {
+                lblDate.Text = "📅 Data de publicação: Não disponível";
+            }
+            
             lblSize.Text = $"📦 Tamanho: {_updateService.FormatFileSize(_updateInfo.Tamanho)}";
             
-            txtChangelog.Text = string.IsNullOrEmpty(_updateInfo.Descricao) 
-                ? "• Melhorias de desempenho\n• Correções de bugs\n• Novas funcionalidades" 
-                : _updateInfo.Descricao;
+            if (string.IsNullOrEmpty(_updateInfo.Descricao))
+            {
+                txtChangelog.Text = "📝 Nenhuma descrição fornecida para esta versão.\n\n" +
+                                    "• Melhorias de desempenho\n" +
+                                    "• Correções de bugs\n" +
+                                    "• Novas funcionalidades";
+            }
+            else
+            {
+                txtChangelog.Text = _updateInfo.Descricao;
+            }
+            
+            if (_updateInfo.IsObrigatoria)
+            {
+                txtChangelog.Text += "\n\n⚠️ ESTA É UMA ATUALIZAÇÃO OBRIGATÓRIA!";
+            }
         }
         
         private void OnDownloadProgress(object? sender, UpdateProgressEventArgs e)
@@ -255,9 +270,9 @@ namespace GeradorXML.Views
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
                 
             btnUpdate.Enabled = true;
-            btnLater.Enabled = true;
-            btnIgnore.Enabled = true;
             btnUpdate.Text = "📥 Tentar Novamente";
+            btnLater.Enabled = !_updateInfo.IsObrigatoria;
+            btnIgnore.Enabled = !_updateInfo.IsObrigatoria;
             _isDownloading = false;
         }
         
@@ -279,6 +294,11 @@ namespace GeradorXML.Views
             
             try
             {
+                if (string.IsNullOrEmpty(_updateInfo.DownloadUrl))
+                {
+                    throw new Exception("URL de download não encontrada!");
+                }
+                
                 var success = await _updateService.BaixarAtualizacaoAsync(_updateInfo.DownloadUrl);
                 
                 if (success)

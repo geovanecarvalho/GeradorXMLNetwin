@@ -1,4 +1,4 @@
-// FormPrincipal.cs
+// Views/FormPrincipal.cs
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -7,6 +7,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using GeradorXML.Models;
 using GeradorXML.Services;
@@ -26,6 +27,7 @@ namespace GeradorXML.Views
         private Button? btnSobre;
         private Button? btnConfiguracao;
         private Button? btnSuporte;
+        private Button? btnNotificacao;
         private TextBox? txtCaminhoArquivo;
         private Label? lblInfoArquivo;
         private ProgressBar? progressBar;
@@ -34,16 +36,30 @@ namespace GeradorXML.Views
         private Panel? panelProgresso;
         private ToolTip? toolTip;
         private PictureBox? pictureBoxIcone;
+        
+        // Campos para atualização
+        private UpdateService? _updateService;
+        private NotifyIcon? _notifyIcon;
+        private int _notificacoesPendentes = 0;
+        private List<UpdateInfo> _atualizacoesPendentes = new();
 
         public FormPrincipal()
         {
             try
             {
+                this.Cursor = Cursors.Default;
+                this.UseWaitCursor = false;
+                
                 InicializarComponentes();
                 ConfigurarEventos();
                 ConfigurarToolTips();
                 ConfigurarBackgroundWorker();
                 CarregarIcones();
+                
+                _updateService = new UpdateService();
+                _updateService.OnUpdateAvailable += OnUpdateAvailable;
+                
+                this.Load += FormPrincipal_Load!;
             }
             catch (Exception ex)
             {
@@ -55,14 +71,12 @@ namespace GeradorXML.Views
         {
             try
             {
-                // Ícone da janela
                 string iconePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "icone.ico");
                 if (File.Exists(iconePath))
                 {
                     this.Icon = new Icon(iconePath);
                 }
                 
-                // Ícone no PictureBox
                 if (pictureBoxIcone != null)
                 {
                     string pngPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "icone.png");
@@ -80,7 +94,6 @@ namespace GeradorXML.Views
                             }
                             pictureBoxIcone.Image = highQualityImage;
                         }
-                        
                         pictureBoxIcone.SizeMode = PictureBoxSizeMode.Zoom;
                         pictureBoxIcone.BackColor = Color.Transparent;
                     }
@@ -94,7 +107,6 @@ namespace GeradorXML.Views
 
         private void InicializarComponentes()
         {
-            // Configuração da Janela Principal
             this.Text = "Gerador de XML para Edificações - Netwin";
             this.Size = new Size(900, 550);
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -102,7 +114,6 @@ namespace GeradorXML.Views
             this.MaximizeBox = false;
             this.BackColor = Color.FromArgb(236, 240, 241);
 
-            // Panel Superior (Header)
             var panelHeader = new Panel
             {
                 Dock = DockStyle.Top,
@@ -110,7 +121,6 @@ namespace GeradorXML.Views
                 BackColor = Color.FromArgb(52, 73, 94)
             };
 
-            // PictureBox para o ícone
             pictureBoxIcone = new PictureBox
             {
                 Location = new Point(20, 20),
@@ -139,7 +149,6 @@ namespace GeradorXML.Views
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            // ==================== BOTÃO CONFIGURAÇÃO ====================
             btnConfiguracao = new Button
             {
                 Text = "⚙️",
@@ -166,7 +175,6 @@ namespace GeradorXML.Views
                 btnConfiguracao.FlatAppearance.BorderSize = 0;
             };
 
-            // ==================== BOTÃO SUPORTE WHATSAPP ====================
             btnSuporte = new Button
             {
                 Text = "💬 Suporte Técnico",
@@ -193,15 +201,44 @@ namespace GeradorXML.Views
                 btnSuporte.FlatAppearance.BorderSize = 0;
             };
 
+            btnNotificacao = new Button
+            {
+                Text = "🔔",
+                Location = new Point(790, 5),
+                Size = new Size(45, 45),
+                BackColor = Color.Transparent,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 18, FontStyle.Regular),
+                Cursor = Cursors.Hand,
+                FlatAppearance = { BorderSize = 0 },
+                Tag = 0
+            };
+
+            btnNotificacao.MouseEnter += (s, e) => 
+            {
+                btnNotificacao.BackColor = Color.FromArgb(70, 90, 110);
+                btnNotificacao.FlatAppearance.BorderSize = 1;
+                btnNotificacao.FlatAppearance.BorderColor = Color.FromArgb(100, 120, 140);
+            };
+
+            btnNotificacao.MouseLeave += (s, e) => 
+            {
+                btnNotificacao.BackColor = Color.Transparent;
+                btnNotificacao.FlatAppearance.BorderSize = 0;
+            };
+
+            btnNotificacao.Click += BtnNotificacao_Click!;
+
             panelHeader.Controls.AddRange(new Control[] { 
                 pictureBoxIcone,
                 lblTitulo, 
                 lblSubtitulo,
                 btnConfiguracao,
-                btnSuporte
+                btnSuporte,
+                btnNotificacao
             });
 
-            // GroupBox Upload
             var groupBoxUpload = new GroupBox
             {
                 Text = "Upload do Arquivo CSV",
@@ -219,7 +256,8 @@ namespace GeradorXML.Views
                 BackColor = Color.FromArgb(52, 152, 219),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10)
+                Font = new Font("Segoe UI", 10),
+                Cursor = Cursors.Hand
             };
 
             txtCaminhoArquivo = new TextBox
@@ -259,7 +297,6 @@ namespace GeradorXML.Views
                 btnProcessar
             });
 
-            // Panel de Progresso
             panelProgresso = new Panel
             {
                 Location = new Point(50, 320),
@@ -299,7 +336,6 @@ namespace GeradorXML.Views
                 lblStatus
             });
 
-            // Panel Footer
             var panelFooter = new Panel
             {
                 Dock = DockStyle.Bottom,
@@ -340,12 +376,11 @@ namespace GeradorXML.Views
             };
 
             panelFooter.Controls.AddRange(new Control[] {
-                btnConversor,
                 btnSobre,
-                lblFooter
+                lblFooter,
+                btnConversor
             });
 
-            // Adicionar todos os controles ao formulário
             this.Controls.AddRange(new Control[] {
                 panelHeader,
                 groupBoxUpload,
@@ -353,7 +388,6 @@ namespace GeradorXML.Views
                 panelFooter
             });
 
-            // Configurar estado inicial do botão
             AtualizarEstadoBotaoProcessar("aguardando", false);
         }
 
@@ -399,6 +433,9 @@ namespace GeradorXML.Views
             
             if (btnSuporte != null)
                 toolTip.SetToolTip(btnSuporte, "Fale conosco no WhatsApp para suporte");
+            
+            if (btnNotificacao != null)
+                toolTip.SetToolTip(btnNotificacao, "Notificações de atualização");
         }
 
         private void ConfigurarBackgroundWorker()
@@ -413,6 +450,182 @@ namespace GeradorXML.Views
             backgroundWorker.ProgressChanged += BackgroundWorker_ProgressChanged!;
             backgroundWorker.RunWorkerCompleted += BackgroundWorker_RunWorkerCompleted!;
         }
+
+        #region Métodos de Atualização
+
+        private async void FormPrincipal_Load(object? sender, EventArgs e)
+        {
+            try
+            {
+                await Task.Delay(1000);
+                
+                if (_updateService != null)
+                {
+                    await _updateService.VerificarAtualizacaoAsync();
+                }
+                
+                Cursor.Current = Cursors.Default;
+                this.UseWaitCursor = false;
+                this.Cursor = Cursors.Default;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro na verificação: {ex.Message}");
+                Cursor.Current = Cursors.Default;
+                this.UseWaitCursor = false;
+            }
+        }
+
+        private void OnUpdateAvailable(UpdateInfo updateInfo)
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(() => OnUpdateAvailable(updateInfo));
+                return;
+            }
+            
+            try
+            {
+                _notificacoesPendentes++;
+                _atualizacoesPendentes.Add(updateInfo);
+                AtualizarIconeSino();
+                MostrarNotificacaoSistema(updateInfo);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao processar atualização: {ex.Message}");
+            }
+        }
+
+        private void AtualizarIconeSino()
+        {
+            if (btnNotificacao == null) return;
+            
+            try
+            {
+                if (_notificacoesPendentes > 0)
+                {
+                    btnNotificacao.Text = $"🔔 {_notificacoesPendentes}";
+                    btnNotificacao.ForeColor = Color.FromArgb(255, 193, 7);
+                    btnNotificacao.Tag = _notificacoesPendentes;
+                }
+                else
+                {
+                    btnNotificacao.Text = "🔔";
+                    btnNotificacao.ForeColor = Color.White;
+                    btnNotificacao.Tag = 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao atualizar sino: {ex.Message}");
+            }
+        }
+
+        private void MostrarNotificacaoSistema(UpdateInfo updateInfo)
+        {
+            try
+            {
+                Icon appIcon;
+                try
+                {
+                    appIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Information;
+                }
+                catch
+                {
+                    appIcon = SystemIcons.Information;
+                }
+                
+                _notifyIcon = new NotifyIcon
+                {
+                    Icon = appIcon,
+                    BalloonTipTitle = "🔄 Nova Atualização Disponível",
+                    BalloonTipText = $"Versão {updateInfo.VersaoNova} está disponível!\nClique aqui para instalar.",
+                    Visible = true,
+                    Tag = updateInfo
+                };
+
+                _notifyIcon.BalloonTipClicked += (s, e) =>
+                {
+                    var icon = s as NotifyIcon;
+                    if (icon?.Tag is UpdateInfo info)
+                    {
+                        icon.Visible = false;
+                        icon.Dispose();
+                        _notifyIcon = null;
+                        AbrirFormularioAtualizacao(info);
+                    }
+                };
+
+                _notifyIcon.Click += (s, e) =>
+                {
+                    var icon = s as NotifyIcon;
+                    if (icon?.Tag is UpdateInfo info)
+                    {
+                        icon.Visible = false;
+                        icon.Dispose();
+                        _notifyIcon = null;
+                        AbrirFormularioAtualizacao(info);
+                    }
+                };
+
+                _notifyIcon.ShowBalloonTip(30000);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao mostrar notificação: {ex.Message}");
+            }
+        }
+
+        private void BtnNotificacao_Click(object? sender, EventArgs e)
+        {
+            try
+            {
+                if (_notificacoesPendentes > 0 && _atualizacoesPendentes.Count > 0)
+                {
+                    var updateInfo = _atualizacoesPendentes.Last();
+                    AbrirFormularioAtualizacao(updateInfo);
+                }
+                else
+                {
+                    if (_updateService != null)
+                    {
+                        Task.Run(async () =>
+                        {
+                            await _updateService.VerificarAtualizacaoAsync(true);
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erro: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void AbrirFormularioAtualizacao(UpdateInfo updateInfo)
+        {
+            try
+            {
+                var formUpdate = new FormUpdate(updateInfo, _updateService!);
+                formUpdate.FormClosed += (s, e) =>
+                {
+                    _atualizacoesPendentes.Remove(updateInfo);
+                    _notificacoesPendentes = _atualizacoesPendentes.Count;
+                    AtualizarIconeSino();
+                };
+                formUpdate.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erro ao abrir atualização: {ex.Message}", 
+                    "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        #endregion
+
+        #region Métodos do BackgroundWorker
 
         private void BtnSelecionarArquivo_Click(object? sender, EventArgs e)
         {
@@ -703,14 +916,19 @@ namespace GeradorXML.Views
             var timer = new System.Windows.Forms.Timer { Interval = 2000 };
             timer.Tick += (s, args) => 
             {
+                var t = s as System.Windows.Forms.Timer;
+                if (t != null)
+                {
+                    t.Stop();
+                    t.Dispose();
+                }
+                
                 if (panelProgresso != null)
                     panelProgresso.Visible = false;
-                timer.Stop();
-                timer.Dispose();
             };
             timer.Start();
         }
-    
+
         private void AbrirPastaComArquivoSelecionado(string caminhoArquivo)
         {
             try
@@ -836,6 +1054,16 @@ namespace GeradorXML.Views
             }
             
             arquivoSelecionadoPath = null;
+        }
+
+        #endregion
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            _notifyIcon?.Dispose();
+            if (_updateService != null)
+                _updateService.OnUpdateAvailable -= OnUpdateAvailable;
+            base.OnFormClosed(e);
         }
     }
 

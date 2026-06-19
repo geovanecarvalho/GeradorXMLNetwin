@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -21,6 +22,7 @@ namespace GeradorXML.Services
         
         public event EventHandler<UpdateProgressEventArgs>? OnDownloadProgress;
         public event EventHandler<string>? OnError;
+        public event Action<UpdateInfo>? OnUpdateAvailable;
 
         public UpdateService(string repoOwner = "geovanecarvalho", string repoName = "GeradorXMLNetwin")
         {
@@ -51,7 +53,7 @@ namespace GeradorXML.Services
             _httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
         }
 
-        private string GetCurrentVersion()
+        public string GetCurrentVersion()
         {
             try
             {
@@ -65,6 +67,43 @@ namespace GeradorXML.Services
             catch
             {
                 return "1.0.0";
+            }
+        }
+
+        public async Task<bool> VerificarAtualizacaoAsync(bool notificarSeAtualizado = false)
+        {
+            try
+            {
+                var response = await CheckForUpdatesAsync();
+                
+                if (response.HasUpdate && response.UpdateInfo != null)
+                {
+                    OnUpdateAvailable?.Invoke(response.UpdateInfo);
+                    return true;
+                }
+                
+                if (notificarSeAtualizado)
+                {
+                    MessageBox.Show(
+                        "✅ Você está usando a versão mais recente!",
+                        "Sem Atualizações",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                
+                return false;
+            }
+            catch (Exception ex)
+            {
+                if (notificarSeAtualizado)
+                {
+                    MessageBox.Show(
+                        $"Erro ao verificar atualizações:\n{ex.Message}",
+                        "Erro",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
+                return false;
             }
         }
 
@@ -228,15 +267,23 @@ namespace GeradorXML.Services
                     var name = asset.GetProperty("name").GetString() ?? "";
                     if (name.EndsWith(".exe") || name.EndsWith(".zip"))
                     {
-                        downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? string.Empty;
-                        size = asset.GetProperty("size").GetInt64();
-                        fileName = name;
-                        break;
+                        var url = asset.GetProperty("browser_download_url").GetString();
+                        if (!string.IsNullOrEmpty(url))
+                        {
+                            downloadUrl = url;
+                            size = asset.GetProperty("size").GetInt64();
+                            fileName = name;
+                            break;
+                        }
                     }
                 }
                 
                 if (string.IsNullOrEmpty(downloadUrl))
                     return null;
+                
+                var isObrigatoria = body.Contains("[OBRIGATORIA]") || 
+                                   body.Contains("[FORCE]") ||
+                                   body.ToLower().Contains("obrigatória");
                 
                 return new UpdateInfo
                 {
@@ -247,7 +294,8 @@ namespace GeradorXML.Services
                     Descricao = body,
                     DataPublicacao = DateTime.Parse(publishedAt),
                     IsPrerelease = isPrerelease,
-                    NomeArquivo = fileName
+                    NomeArquivo = fileName,
+                    IsObrigatoria = isObrigatoria
                 };
             }
             catch
@@ -323,25 +371,17 @@ namespace GeradorXML.Services
                 
                 await Task.Delay(500);
                 
+                var scriptPath = CriarScriptAtualizacao(caminhoTemp);
+                
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = caminhoTemp,
+                    FileName = scriptPath,
                     UseShellExecute = true,
-                    Verb = "runas"
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    CreateNoWindow = true
                 };
                 
-                if (extension.ToLower() == ".exe")
-                {
-                    startInfo.Arguments = "/SILENT /CLOSEAPPLICATIONS /SUPPRESSMSGBOXES";
-                }
-                
-                var process = Process.Start(startInfo);
-                
-                if (process != null)
-                {
-                    await Task.Delay(1000);
-                }
-                
+                Process.Start(startInfo);
                 Application.Exit();
                 
                 return true;
@@ -351,6 +391,39 @@ namespace GeradorXML.Services
                 OnError?.Invoke(this, $"Erro ao baixar atualização: {ex.Message}");
                 return false;
             }
+        }
+
+        private string CriarScriptAtualizacao(string caminhoArquivoNovo)
+        {
+            var scriptPath = Path.Combine(Path.GetTempPath(), $"update_{DateTime.Now:yyyyMMddHHmmss}.bat");
+            var currentExe = Application.ExecutablePath;
+            
+            var scriptContent = $@"
+@echo off
+echo ========================================
+echo  Atualizando GeradorXMLNetwin...
+echo ========================================
+echo.
+
+echo ⏳ Aguardando o programa fechar...
+timeout /t 3 /nobreak > nul
+
+echo 📦 Copiando novo arquivo...
+copy /Y ""{caminhoArquivoNovo}"" ""{currentExe}""
+
+echo 🚀 Iniciando nova versão...
+start """" ""{currentExe}""
+
+echo 🧹 Limpando arquivos temporários...
+del /Q ""{caminhoArquivoNovo}""
+del /Q ""%~f0""
+
+echo ✅ Atualização concluída!
+exit
+";
+            
+            File.WriteAllText(scriptPath, scriptContent, Encoding.UTF8);
+            return scriptPath;
         }
 
         public string FormatFileSize(long bytes)
@@ -415,6 +488,10 @@ namespace GeradorXML.Services
         {
             try
             {
+                // Remover sufixos como -test, -beta, -rc
+                v1 = v1.Split('-')[0];
+                v2 = v2.Split('-')[0];
+                
                 var parts1 = v1.Split('.');
                 var parts2 = v2.Split('.');
                 
@@ -431,7 +508,7 @@ namespace GeradorXML.Services
             }
             catch
             {
-                return 0;
+                return string.Compare(v1, v2, StringComparison.OrdinalIgnoreCase);
             }
         }
 

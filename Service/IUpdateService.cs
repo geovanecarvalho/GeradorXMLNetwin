@@ -7,12 +7,15 @@ namespace GeradorXML.Services
 {
     public interface IUpdateService
     {
-        event EventHandler<UpdateProgressEventArgs> OnDownloadProgress;
-        event EventHandler<string> OnError;
+        event EventHandler<UpdateProgressEventArgs>? OnDownloadProgress;
+        event EventHandler<string>? OnError;
+        event Action<UpdateInfo>? OnUpdateAvailable;
         
         Task<UpdateResponse> CheckForUpdatesAsync();
         Task<bool> BaixarAtualizacaoAsync(string downloadUrl);
+        Task<bool> VerificarAtualizacaoAsync(bool notificarSeAtualizado = false);
         string FormatFileSize(long bytes);
+        string GetCurrentVersion();
         UpdateConfig GetConfig();
         void SaveConfig(UpdateConfig config);
         void IgnoreVersion(string version);
