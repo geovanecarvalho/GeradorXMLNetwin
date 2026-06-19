@@ -1,4 +1,4 @@
-// Views/FormPrincipal.cs
+// FormPrincipal.cs
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -42,6 +42,9 @@ namespace GeradorXML.Views
         private NotifyIcon? _notifyIcon;
         private int _notificacoesPendentes = 0;
         private List<UpdateInfo> _atualizacoesPendentes = new();
+        private System.Windows.Forms.Timer? _blinkTimer;
+        private bool _blinkState = false;
+        private bool _temNovaVersao = false;
 
         public FormPrincipal()
         {
@@ -60,6 +63,26 @@ namespace GeradorXML.Views
                 _updateService.OnUpdateAvailable += OnUpdateAvailable;
                 
                 this.Load += FormPrincipal_Load!;
+                
+                // ⭐ TIMER PARA PISCAR (APENAS QUANDO HOUVER NOVA VERSÃO)
+                _blinkTimer = new System.Windows.Forms.Timer { Interval = 500 };
+                _blinkTimer.Tick += (s, e) =>
+                {
+                    if (btnNotificacao != null && _temNovaVersao && _notificacoesPendentes > 0)
+                    {
+                        _blinkState = !_blinkState;
+                        
+                        if (_blinkState)
+                        {
+                            btnNotificacao.ForeColor = Color.FromArgb(211, 56, 7); // Vermelho
+                        }
+                        else
+                        {
+                            btnNotificacao.ForeColor = Color.White; // Branco
+                        }
+                    }
+                };
+                // ⭐ NÃO INICIAR O TIMER AINDA - só quando houver nova versão
             }
             catch (Exception ex)
             {
@@ -201,6 +224,7 @@ namespace GeradorXML.Views
                 btnSuporte.FlatAppearance.BorderSize = 0;
             };
 
+            // ⭐ BOTÃO DE NOTIFICAÇÃO
             btnNotificacao = new Button
             {
                 Text = "🔔",
@@ -488,6 +512,12 @@ namespace GeradorXML.Views
             {
                 _notificacoesPendentes++;
                 _atualizacoesPendentes.Add(updateInfo);
+                
+                // ⭐ MARCAR QUE HÁ NOVA VERSÃO E INICIAR PISCAR
+                _temNovaVersao = true;
+                _blinkState = true;
+                _blinkTimer?.Start();
+                
                 AtualizarIconeSino();
                 MostrarNotificacaoSistema(updateInfo);
             }
@@ -503,14 +533,17 @@ namespace GeradorXML.Views
             
             try
             {
-                if (_notificacoesPendentes > 0)
+                if (_notificacoesPendentes > 0 && _temNovaVersao)
                 {
                     btnNotificacao.Text = $"🔔 {_notificacoesPendentes}";
-                    btnNotificacao.ForeColor = Color.FromArgb(255, 193, 7);
                     btnNotificacao.Tag = _notificacoesPendentes;
+                    btnNotificacao.ForeColor = Color.FromArgb(211, 56, 7);
                 }
                 else
                 {
+                    _blinkTimer?.Stop();
+                    _temNovaVersao = false;
+                    _blinkState = false;
                     btnNotificacao.Text = "🔔";
                     btnNotificacao.ForeColor = Color.White;
                     btnNotificacao.Tag = 0;
@@ -583,6 +616,17 @@ namespace GeradorXML.Views
             {
                 if (_notificacoesPendentes > 0 && _atualizacoesPendentes.Count > 0)
                 {
+                    // ⭐ PARAR O PISCAR QUANDO O USUÁRIO CLICAR
+                    _blinkTimer?.Stop();
+                    _temNovaVersao = false;
+                    _blinkState = false;
+                    
+                    // Manter o sino vermelho (sem piscar)
+                    if (btnNotificacao != null)
+                    {
+                        btnNotificacao.ForeColor = Color.FromArgb(211, 56, 7);
+                    }
+                    
                     var updateInfo = _atualizacoesPendentes.Last();
                     AbrirFormularioAtualizacao(updateInfo);
                 }
@@ -1060,6 +1104,14 @@ namespace GeradorXML.Views
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            // ⭐ Parar timer de piscar
+            if (_blinkTimer != null)
+            {
+                _blinkTimer.Stop();
+                _blinkTimer.Dispose();
+                _blinkTimer = null;
+            }
+            
             _notifyIcon?.Dispose();
             if (_updateService != null)
                 _updateService.OnUpdateAvailable -= OnUpdateAvailable;
