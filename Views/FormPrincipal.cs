@@ -391,7 +391,7 @@ namespace GeradorXML.Views
 
             var lblFooter = new Label
             {
-                Text = "© 2026 Geovane Carvalho - Gerador de XML Netwin v1.0.0",
+                Text = "© 2026 Geovane Carvalho - Gerador de XML Netwin v1.0.1",
                 Location = new Point(230, 18),
                 Size = new Size(400, 20),
                 ForeColor = Color.FromArgb(180, 180, 180),

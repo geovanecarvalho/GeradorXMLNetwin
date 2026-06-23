@@ -102,6 +102,7 @@ namespace GeradorXML.Services
             return memoryStream.ToArray();
         }
 
+        // Services/XmlGeneratorService.cs - Método ConstruirEdificio CORRIGIDO
         private Edificio ConstruirEdificio(CsvRegistro registro, int tipoComplemento)
         {
             // Obter valores do roteiro se disponível
@@ -112,7 +113,22 @@ namespace GeradorXML.Services
                 CodSurvey = string.IsNullOrWhiteSpace(registro.CodSurvey) ? "SEM_CODIGO" : registro.CodSurvey,
                 Latitude = ConverterCoordenada(registro.Latitude),
                 Longitude = ConverterCoordenada(registro.Longitude),
+                
+                // ⭐ CORREÇÃO AQUI - Usar o valor do CSV ou valor padrão
+                CodigoZona = !string.IsNullOrWhiteSpace(registro.CodZona) 
+                    ? registro.CodZona.Trim() 
+                    : "DF-GURX-ETGR-CEOS-68", // Valor padrão se não tiver no CSV
+                
                 Localidade = string.IsNullOrWhiteSpace(registro.Localidade) ? "GUARA" : registro.Localidade,
+                
+                // ⭐ ADICIONAR ESTES CAMPOS QUE ESTAVAM FALTANDO
+                TecnicoId = "1828772688",
+                TecnicoNome = "NADIA CAROLINE",
+                EmpresaId = "42541126",
+                EmpresaNome = "TELEMONT",
+                Ocupacao = "EDIFICACAOCOMPLETA",
+                NumPisos = 1,
+                
                 TotalUCs = registro.QuantidadeUms > 0 ? registro.QuantidadeUms : 1,
                 Destinacao = DeterminarDestinacao(registro.UcsResidenciais, registro.UcsComerciais)
             };
@@ -152,6 +168,14 @@ namespace GeradorXML.Services
                 edificio.Endereco.Complemento3 = CodigosComplemento.ObterCodigo(registro.Complemento3);
                 edificio.Endereco.Argumento3 = CodigosComplemento.ExtrairNumeroArgumento(registro.Complemento3);
             }
+
+            // ⭐ DEBUG - Mostrar o que está sendo construído
+            Console.WriteLine($"Edifício construído:");
+            Console.WriteLine($"  COD_SURVEY: {edificio.CodSurvey}");
+            Console.WriteLine($"  CODIGO_ZONA: {edificio.CodigoZona}");
+            Console.WriteLine($"  TECNICO: {edificio.TecnicoNome}");
+            Console.WriteLine($"  OCUPACAO: {edificio.Ocupacao}");
+            Console.WriteLine($"  NUM_PISOS: {edificio.NumPisos}");
 
             return edificio;
         }

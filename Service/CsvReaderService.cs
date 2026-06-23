@@ -1,4 +1,4 @@
-// Services/CsvReaderService.cs - Corrigido
+// Services/CsvReaderService.cs - Atualizado
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,12 +12,11 @@ namespace GeradorXML.Services
 {
     public class CsvReaderService
     {
-        // Encodings corrigidos - nomes corretos do Windows/.NET
         private readonly Encoding[] _encodings = new[]
         {
-            Encoding.GetEncoding("ISO-8859-1"),  // Nome correto para Latin-1
+            Encoding.GetEncoding("ISO-8859-1"),
             Encoding.UTF8,
-            Encoding.GetEncoding("Windows-1252"), // CP1252
+            Encoding.GetEncoding("Windows-1252"),
             Encoding.Default
         };
 
@@ -28,10 +27,10 @@ namespace GeradorXML.Services
             
             var config = new CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)
             {
-                Delimiter = ";",           // Separador ponto e vírgula
-                HasHeaderRecord = true,    // Primeira linha é cabeçalho
-                MissingFieldFound = null,  // Ignorar campos faltantes
-                HeaderValidated = null,    // Ignorar validação de cabeçalho
+                Delimiter = ";",
+                HasHeaderRecord = true,
+                MissingFieldFound = null,
+                HeaderValidated = null,
                 Encoding = encodingEncontrado
             };
 
@@ -51,8 +50,8 @@ namespace GeradorXML.Services
                 try
                 {
                     using var reader = new StreamReader(caminhoArquivo, encoding, detectEncodingFromByteOrderMarks: true);
-                    reader.Peek(); // Tenta ler um caractere
-                    return encoding; // Se chegou aqui, o encoding funcionou
+                    reader.Peek();
+                    return encoding;
                 }
                 catch
                 {
@@ -60,7 +59,6 @@ namespace GeradorXML.Services
                 }
             }
             
-            // Fallback para UTF-8
             return Encoding.UTF8;
         }
 
@@ -77,7 +75,8 @@ namespace GeradorXML.Services
                 "TIPO_VIABILIDADE", "TIPO_REDE", "UCS_RESIDENCIAIS", "UCS_COMERCIAIS",
                 "NOME_CDO", "ID_ENDERECO", "LATITUDE", "LONGITUDE", "TIPO_SURVEY",
                 "REDE_INTERNA", "UMS_CERTIFICADAS", "REDE_EDIF_CERT", "DISP_COMERCIAL",
-                "ESTADO_CONTROLE", "DATA_ESTADO_CONTROLE", "ID_CELULA", "QUANTIDADE_HCS"
+                "ESTADO_CONTROLE", "DATA_ESTADO_CONTROLE", "ID_CELULA", "QUANTIDADE_HCS",
+                "COD_ZONA" 
             };
             
             try
@@ -94,9 +93,17 @@ namespace GeradorXML.Services
                 csv.ReadHeader();
                 var colunasArquivo = csv.HeaderRecord?.Select(h => h.ToUpperInvariant()).ToList() ?? new List<string>();
                 
+                // Mostra todas as colunas do arquivo para debug
+                Console.WriteLine($"Colunas encontradas no CSV: {string.Join(", ", colunasArquivo)}");
+                
                 colunasFaltantes = colunasObrigatorias
                     .Where(col => !colunasArquivo.Contains(col.ToUpperInvariant()))
                     .ToList();
+                
+                if (colunasFaltantes.Any())
+                {
+                    Console.WriteLine($"Colunas faltantes: {string.Join(", ", colunasFaltantes)}");
+                }
                 
                 return colunasFaltantes.Count == 0;
             }

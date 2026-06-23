@@ -19,6 +19,9 @@ namespace GeradorXML.Models
         
         [Name("LOCALIDADE")]
         public string Localidade { get; set; } = "";
+
+        [Name("COD_ZONA")]
+        public string CodZona { get; set; } = "";
         
         [Name("COD_LOCALIDADE")]
         public string CodLocalidade { get; set; } = "";
